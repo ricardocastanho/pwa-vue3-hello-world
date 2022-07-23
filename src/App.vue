@@ -37,8 +37,10 @@ export default {
     }
   },
 
-  // methods that implement data logic.
-  // note there's no DOM manipulation here at all.
+  async created() {
+    this.todos = await this.getTodoStore()
+  },
+
   methods: {
     addTodo() {
       const value = this.newTodo && this.newTodo.trim()
@@ -52,6 +54,7 @@ export default {
         return
       }
       this.todos.push(todoItem)
+      this.saveTodo(todoItem)
       this.newTodo = ''
     },
 
@@ -93,6 +96,44 @@ export default {
           this.database = event.target.result
           resolve(this.database)
         }
+
+        request.onupgradeneeded = event => {
+          const database = event.target.result
+          
+          database.createObjectStore('todos', {
+            autoIncrement: true,
+            keyPath: 'id'
+          })
+        }
+      })
+    },
+
+    async getTodoStore() {
+      this.database = await this.getDatabase()
+
+      return new Promise((resolve, reject) => {
+        const transaction = this.database.transaction('todos', 'readonly')
+
+        const store = transaction.objectStore('todos')
+
+        const todoList = []
+
+        store.openCursor().onsuccess = event => {
+          const cursor = event.target.result
+
+          if (cursor) {
+            todoList.push(cursor.value)
+            cursor.continue()
+          }
+        }
+
+        transaction.oncomplete = () => {
+          resolve(todoList)
+        }
+
+        transaction.onerror = event => {
+          reject(event)
+        }
       })
     },
 
@@ -111,6 +152,22 @@ export default {
       this.todos.splice(index, 1)
     },
 
+    async saveTodo(todo) {
+      this.database = await this.getDatabase()
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.database.transaction('todos', 'readwrite')
+        const store = transaction.objectStore('todos')
+        const request = store.put(todo)
+        request.onsuccess = () => {
+          resolve('Item successfully saved.')
+        }
+        request.onerror = event => {
+          reject(event)
+        }
+      })
+    },
+
     updateTodo(todo) {
       this.todos.find(item => item === todo).completed = !todo.completed
     }
@@ -122,9 +179,6 @@ export default {
   <section class="todoapp">
     <header class="header">
       <h1>todos</h1>
-      <h2>Database</h2>
-      <p>{{ database }}</p>
-      <button @click="getDatabase">Get database</button>
       <input
         class="new-todo"
         autofocus
