@@ -32,6 +32,7 @@ export default {
       set(value) {
         this.todos.forEach(todo => {
           todo.completed = value
+          this.saveTodo({ ...todo })
         })
       }
     }
@@ -69,6 +70,12 @@ export default {
       }
       this.editedTodo = null
       todo.title = todo.title.trim()
+      
+      this.saveTodo({
+        ...todo,
+        title: todo.title
+      })
+
       if (!todo.title) {
         this.removeTodo(todo)
       }
@@ -170,6 +177,7 @@ export default {
 
     updateTodo(todo) {
       this.todos.find(item => item === todo).completed = !todo.completed
+      this.saveTodo({ ...todo })
     }
   }
 }
